@@ -1,3 +1,4 @@
+# eMMC
 /boot          emmc      /dev/block/bootdevice/by-name/boot          flags=display="Boot"
 /system        ext4      /dev/block/bootdevice/by-name/system        flags=display="System"
 /system_image  emmc      /dev/block/bootdevice/by-name/system
@@ -11,5 +12,21 @@
 /persist       ext4      /dev/block/bootdevice/by-name/persist       flags=display="Persist";backup=1
 /misc          emmc      /dev/block/bootdevice/by-name/fota          flags=display="Misc"
 
-/external_sd   auto      /dev/block/mmcblk1p1    /dev/block/mmcblk1           flags=display="MicroSD Card";storage;wipeingui;removable
+# microSD
+/boot_sdc2          emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/boot          flags=display="Boot (SDC2)";flashimg=1;backup=1;removable
+/system_sdc2        ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/SYSTEM        flags=display="System (SDC2)";backup=1;wipeingui;removable
+/system_image_sdc2  emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/SYSTEM        flags=display="System Image (SDC2)";flashimg=1;backup=1;removable
+/cache_sdc2         ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/cache         flags=display="Cache (SDC2)";backup=1;wipeingui;removable
+/data_sdc2          ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/userdata      flags=display="Data (SDC2)";backup=1;wipeingui;encryptable=footer;length=-20480;removable
+/vendor_sdc2        ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/vendor        flags=display="Vendor (SDC2)";backup=1;wipeingui;removable
+/vendor_image_sdc2  emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/vendor        flags=display="Vendor Image (SDC2)";flashimg=1;backup=1;removable
+/recovery_sdc2      emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/recovery      flags=display="Recovery (SDC2)";flashimg=1;backup=1;removable
+/efs_sdc2           ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/efs           flags=display="EFS (SDC2)";backup=1;removable
+/modemst1_sdc2      emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/modemst1      flags=subpartitionof=/efs_sdc2;backup=1;removable
+/modemst2_sdc2      emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/modemst2      flags=subpartitionof=/efs_sdc2;backup=1;removable
+/preload_sdc2       ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/hidden        flags=display="Preload (SDC2)";wipeingui;backup=1;removable
+/persist_sdc2       ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/persist       flags=display="Persist (SDC2)";backup=1;removable
+/misc_sdc2          emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/fota          flags=display="Misc (SDC2)";removable
+/external_sd        auto      /data_sdc2/media/0                                            flags=display="MicroSD Card";usermrf;fsflags="bind";removable
+
 /usb-otg       auto      /dev/block/sda1         /dev/block/sda               flags=display="USB OTG";storage;wipeingui;removable
