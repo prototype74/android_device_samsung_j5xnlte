@@ -14,17 +14,14 @@
 # limitations under the License.
 #
 
-# Inherit from the common Open Source product configuration
-$(call inherit-product, $(SRC_TARGET_DIR)/product/embedded.mk)
+LOCAL_PATH := $(call my-dir)
+include $(CLEAR_VARS)
 
-# Inherit from our custom product configuration
-$(call inherit-product, vendor/omni/config/common.mk)
+LOCAL_MODULE_TAGS      := optional
+LOCAL_MODULE           := sdc2Tool
+LOCAL_SRC_FILES        := sdc2Tool.c wipe.c utilities.c
+LOCAL_MODULE_PATH      := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+LOCAL_LDFLAGS          := -Wl,-dynamic-linker,/sbin/linker64
+LOCAL_CLANG            := true
 
-PRODUCT_PACKAGES += sdc2Tool
-
-## Device identifier. This must come after all inclusions
-PRODUCT_DEVICE := j5xnlte
-PRODUCT_NAME := omni_j5xnlte
-PRODUCT_BRAND := samsung
-PRODUCT_MODEL := SM-J510F
-PRODUCT_MANUFACTURER := samsung
+include $(BUILD_EXECUTABLE)
