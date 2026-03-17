@@ -25,6 +25,18 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+on init
+    mkdir /data_sdc2
+
 on fs
     wait /dev/block/platform/soc.0/${ro.boot.bootdevice}
     symlink /dev/block/platform/soc.0/${ro.boot.bootdevice} /dev/block/bootdevice
+    mount f2fs /dev/block/platform/soc.0/7864900.sdhci/by-name/userdata /data_sdc2
+    mount ext4 /dev/block/platform/soc.0/7864900.sdhci/by-name/userdata /data_sdc2
+
+on post-fs-data
+    # Set up /data_sdc2/media/0
+    mkdir /data_sdc2/media 0770 media_rw media_rw
+    chown media_rw media_rw /data_sdc2/media
+    mkdir /data_sdc2/media/0 0770 media_rw media_rw
+    chown media_rw media_rw /data_sdc2/media/0
