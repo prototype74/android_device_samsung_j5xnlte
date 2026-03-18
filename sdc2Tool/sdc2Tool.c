@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <termios.h>
 
 #include "constants.h"
 #include "wipe.h"
@@ -62,23 +64,62 @@ static void reset_screen(const char *note) {
     print_menu();
 }
 
+static void user_input(const char *prompt, char *buf, int size) {
+    struct termios old, raw;
+    int i = 0;
+    char c;
+
+    printf("%s", prompt);
+    fflush(stdout);
+
+    tcgetattr(STDIN_FILENO, &old);
+    raw = old;
+    raw.c_lflag &= ~(ECHO | ICANON);
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+
+    while (1) {
+        if (read(STDIN_FILENO, &c, 1) <= 0)
+            break;
+
+        if (c == '\n' || c == '\r') {
+            break;
+        } else if (c == 127 || c == '\b') {
+            if (buf && i > 0) {
+                i--;
+                printf("\b \b");
+                fflush(stdout);
+            }
+        } else if (c == 27) {
+            char seq[2];
+            read(STDIN_FILENO, &seq[0], 1);
+            read(STDIN_FILENO, &seq[1], 1);
+        } else {
+            if (buf && i < size - 1) {
+                buf[i++] = c;
+                printf("%c", c);
+                fflush(stdout);
+            }
+        }
+    }
+
+    if (buf)
+        buf[i] = '\0';
+    printf("\n");
+    tcsetattr(STDIN_FILENO, TCSANOW, &old);
+}
+
 static int confirm(const char* warning) {
     char input[16];
 
     printf("[WARNING] %s\n", warning);
     printf("\n");
-    printf("Type 'yes' to confirm: ");
+    user_input("Type 'yes' to confirm: ", input, sizeof(input));
 
-    if (fgets(input, sizeof(input), stdin) == NULL)
-        return 0;
-
-    input[strcspn(input, "\n")] = '\0';
     return strcmp(input, "yes") == 0;
 }
 
 static void confirm_enter(void) {
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);
+    user_input("\nPress ENTER to continue...", NULL, 0);
 }
 
 int main(void) {
@@ -99,12 +140,7 @@ int main(void) {
     print_menu();
 
     while (running) {
-        printf("Select option [1-3]: ");
-
-        if (fgets(input, sizeof(input), stdin) == NULL) {
-            fprintf(stderr, "[ERROR] Failed to read user input\n");
-            return 1;
-        }
+        user_input("Select option [1-3]: ", input, sizeof(input));
 
         val = strtol(input, &endptr, 10);
 
@@ -124,7 +160,6 @@ int main(void) {
                 }
                 printf("\n");
                 result = wipe_dalvik_sdc2();
-                printf("\nPress ENTER to continue...");
                 confirm_enter();
                 if (result != 0) {
                     reset_screen("Error: Failed to wipe Dalvik cache");
@@ -141,7 +176,6 @@ int main(void) {
                 }
                 printf("\n");
                 result = wipe_data_sdc2();
-                printf("\nPress ENTER to continue...");
                 confirm_enter();
                 if (result != 0) {
                     reset_screen("Error: Failed to wipe /data_sdc2");
