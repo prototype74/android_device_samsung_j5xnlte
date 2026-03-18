@@ -27,5 +27,10 @@
 int is_microsd_available(void);
 /* Checks /proc/mounts to determine if the given mount point is mounted */
 int is_mounted(const char* mount_point);
+/* Unmounts all mount points associated with the given block device path.
+ * Matches partitions by device number, so both symbolic links and real
+ * block device paths (e.g. mmcblk1p28) are handled correctly.
+ * Returns 0 on success, non-zero on failure. */
+int unmount_all(const char *block_device);
 
 #endif /* UTILITIES_H */
