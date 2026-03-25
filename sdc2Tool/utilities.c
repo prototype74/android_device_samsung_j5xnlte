@@ -22,10 +22,15 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
+#include <sys/wait.h>
 
+#include "constants.h"
 #include "utilities.h"
 
 #define DEV_BLOCK_MICROSD "/dev/block/mmcblk1"
@@ -127,6 +132,98 @@ int unmount_all(const char *block_device) {
             fprintf(stderr, "[ERROR] Failed to unmount '%s': %s\n", mount_points[i], strerror(errno));
             return 1;
         }
+    }
+
+    return 0;
+}
+
+int run_command(const char *path, const char *const args[]) {
+    pid_t pid;
+    int status;
+
+    pid = fork();
+
+    if (pid < 0) {
+        fprintf(stderr, "[ERROR] fork() failed: %s\n", strerror(errno));
+        return -1;
+    }
+
+    if (pid == 0) {
+        execv(path, (char *const *)args);
+        fprintf(stderr, "[ERROR] execv() failed for '%s': %s\n", path, strerror(errno));
+        _exit(1);
+    }
+
+    /* parent process waiting for child process to exit */
+    if (waitpid(pid, &status, 0) < 0) {
+        fprintf(stderr, "[ERROR] waitpid() failed: %s\n", strerror(errno));
+        return -1;
+    }
+
+    if (WIFEXITED(status))
+        return WEXITSTATUS(status);
+
+    if (WIFSIGNALED(status)) {
+        fprintf(stderr, "[ERROR] Process terminated by signal %d\n", WTERMSIG(status));
+        return -1;
+    }
+
+    fprintf(stderr, "[ERROR] Process terminated abnormally (status: %d)\n", status);
+    return -1;
+}
+
+const char *get_filesystem_type(const char *block_device) {
+    int fd;
+    uint32_t magic;
+    uint16_t ext4_magic;
+
+    fd = open(block_device, O_RDONLY);
+    if (fd < 0)
+        return "unknown";
+
+    if (lseek(fd, 1024, SEEK_SET) >= 0 &&
+        read(fd, &magic, sizeof(magic)) == sizeof(magic)) {
+        if (magic == 0xF2F52010) {
+            close(fd);
+            return "f2fs";
+        }
+    }
+
+    if (lseek(fd, 1080, SEEK_SET) >= 0 &&
+        read(fd, &ext4_magic, sizeof(ext4_magic)) == sizeof(ext4_magic)) {
+        if (ext4_magic == 0xEF53) {
+            close(fd);
+            return "ext4";
+        }
+    }
+
+    close(fd);
+    return "unknown";
+}
+
+int setup_data_sdc2_media(void) {
+    if (mkdir(DATA_MEDIA, 0770) != 0) {
+        fprintf(stderr, "[ERROR] Failed to create '%s': %s\n",
+                DATA_MEDIA, strerror(errno));
+        return 1;
+    }
+
+    if (chown(DATA_MEDIA, 1023, 1023) != 0) {
+        fprintf(stderr, "[ERROR] Failed to set owner for '%s': %s\n",
+                DATA_MEDIA, strerror(errno));
+        return 1;
+    }
+
+    if (mkdir(DATA_MEDIA_0, 0770) != 0) {
+        fprintf(stderr, "[ERROR] Failed to create '%s': %s\n",
+                DATA_MEDIA_0, strerror(errno));
+        return 1;
+    }
+
+    if (chown(DATA_MEDIA_0, 1023, 1023) != 0) {
+        fprintf(stderr, "[ERROR] Failed to set owner for '%s': %s\n",
+                DATA_MEDIA_0, strerror(errno));
+        return 1;
     }
 
     return 0;

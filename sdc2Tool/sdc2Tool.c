@@ -23,16 +23,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <termios.h>
+#include <sys/mount.h>
 
 #include "constants.h"
+#include "format.h"
 #include "wipe.h"
 #include "utilities.h"
 
 enum sdc2ToolOptions {
     WIPE_DALVIK = 1,
     WIPE_DATA,
+    FORMAT_DATA,
     EXIT_SDC2TOOL,
 };
 
@@ -47,7 +51,8 @@ static void print_header(void) {
 static void print_menu(void) {
     printf("1) Wipe Dalvik cache\n");
     printf("2) Wipe Data (keeps /data_sdc2/media)\n");
-    printf("3) Exit\n");
+    printf("3) Format Data (ext4 or f2fs)\n");
+    printf("4) Exit\n");
     printf("\n");
 }
 
@@ -140,7 +145,7 @@ int main(void) {
     print_menu();
 
     while (running) {
-        user_input("Select option [1-3]: ", input, sizeof(input));
+        user_input("Select option [1-4]: ", input, sizeof(input));
 
         val = strtol(input, &endptr, 10);
 
@@ -183,11 +188,79 @@ int main(void) {
                     reset_screen("Wiped /data_sdc2 successfully");
                 }
                 break;
+            case FORMAT_DATA: {
+                int fs_option;
+                fs_type_t fs_type;
+
+                clear_screen();
+                print_header();
+                printf("Mount point: %s\n", DATA_MOUNT_POINT);
+                printf("Current filesystem: %s\n\n", get_filesystem_type(DATA_PART));
+                printf("Select filesystem type:\n");
+                printf("1) EXT4\n");
+                printf("2) F2FS\n");
+                printf("\n");
+                user_input("Select option [1, 2], or any other to cancel: ", input, sizeof(input));
+
+                val = strtol(input, &endptr, 10);
+
+                if (endptr == input || (*endptr != '\n' && *endptr != '\0')) {
+                    fs_option = -1;
+                } else {
+                    fs_option = (int)val;
+                }
+
+                if (fs_option == 1) {
+                    fs_type = FS_EXT4;
+                } else if (fs_option == 2) {
+                    fs_type = FS_F2FS;
+                } else {
+                    reset_screen("Format canceled.");
+                    break;
+                }
+
+                clear_screen();
+                print_header();
+
+                if (!confirm("Formatting /data_sdc2 will erase all data, and this action cannot be undone! Continue?")) {
+                    reset_screen("Format canceled.");
+                    break;
+                }
+
+                printf("\n");
+                result = format_data_sdc2(fs_type);
+
+                if (result != 0) {
+                    confirm_enter();
+                    reset_screen("Error: Failed to format /data_sdc2");
+                    break;
+                }
+
+                /* Mount /data_sdc2 to setup /data_sdc2/media/0 after format */
+                if (mount(DATA_PART, DATA_MOUNT_POINT,
+                        fs_type == FS_F2FS ? "f2fs" : "ext4", 0, NULL) != 0) {
+                    fprintf(stderr, "[ERROR] Failed to mount '%s': %s\n",
+                            DATA_MOUNT_POINT, strerror(errno));
+                    confirm_enter();
+                    reset_screen("Error: Failed to mount /data_sdc2 after format");
+                    break;
+                }
+
+                if (setup_data_sdc2_media() != 0) {
+                    confirm_enter();
+                    reset_screen("Error: Failed to setup /data_sdc2/media after format");
+                    break;
+                }
+
+                confirm_enter();
+                reset_screen("Formatted /data_sdc2 successfully");
+                break;
+            }
             case EXIT_SDC2TOOL:
                 running = 0;
                 break;
             default:
-                reset_screen("Invalid selection. Please choose 1-3.");
+                reset_screen("Invalid selection. Please choose 1-4.");
                 break;
         }
     }

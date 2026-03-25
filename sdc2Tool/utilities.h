@@ -23,14 +23,31 @@
 #ifndef UTILITIES_H
 #define UTILITIES_H
 
+#define STRINGIFY(x) #x
+#define TO_STRING(x) STRINGIFY(x)
+
 /* Checks if the microSD card is present */
 int is_microsd_available(void);
+
 /* Checks /proc/mounts to determine if the given mount point is mounted */
 int is_mounted(const char* mount_point);
+
 /* Unmounts all mount points associated with the given block device path.
  * Matches partitions by device number, so both symbolic links and real
  * block device paths (e.g. mmcblk1p28) are handled correctly.
  * Returns 0 on success, non-zero on failure. */
 int unmount_all(const char *block_device);
+
+/* Forks a child process and executes the given binary with args.
+ * Returns the exit code of the process, or -1 on failure. */
+int run_command(const char *path, const char *const args[]);
+
+/* Reads the filesystem type directly from the block device superblock.
+ * Works without mounting. Returns "ext4", "f2fs", or "unknown". */
+const char *get_filesystem_type(const char *block_device);
+
+/* Creates /data_sdc2/media and /data_sdc2/media/0 with correct
+ * permissions (0770) and media_rw (1023) as owner and group. */
+int setup_data_sdc2_media(void);
 
 #endif /* UTILITIES_H */

@@ -19,7 +19,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS      := optional
 LOCAL_MODULE           := sdc2Tool
-LOCAL_SRC_FILES        := sdc2Tool.c wipe.c utilities.c
+LOCAL_SRC_FILES        := sdc2Tool.c wipe.c utilities.c format.c
 LOCAL_MODULE_PATH      := $(TARGET_RECOVERY_ROOT_OUT)/sbin
 LOCAL_LDFLAGS          := -Wl,-dynamic-linker,/sbin/linker64
 LOCAL_CLANG            := true

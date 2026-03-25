@@ -20,13 +20,19 @@
 * SOFTWARE.
 */
 
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
+#ifndef FORMAT_H
+#define FORMAT_H
 
-#define DATA_PART          "/dev/block/platform/soc.0/7864900.sdhci/by-name/userdata"
-#define DATA_MOUNT_POINT   "/data_sdc2"
-#define DATA_DALVIK_CACHE  DATA_MOUNT_POINT "/dalvik-cache"
-#define DATA_MEDIA         DATA_MOUNT_POINT "/media"
-#define DATA_MEDIA_0       DATA_MOUNT_POINT "/media/0"
+typedef enum {
+    FS_EXT4,
+    FS_F2FS
+} fs_type_t;
 
-#endif /* CONSTANTS_H */
+/*
+ * Formats /data_sdc2 as ext4 or f2fs.
+ * Applies an offset of 20480 bytes to reserve space for the crypto footer.
+ * Returns 0 on success, non-zero on failure.
+ */
+int format_data_sdc2(fs_type_t fs_type);
+
+#endif /* FORMAT_H */
