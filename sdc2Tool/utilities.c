@@ -23,10 +23,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
 
@@ -227,4 +229,71 @@ int setup_data_sdc2_media(void) {
     }
 
     return 0;
+}
+
+int calc_size(const char *path, const char *skip_name,
+              unsigned long long *size) {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat st;
+    char full_path[PATH_MAX];
+
+    dir = opendir(path);
+    if (!dir) {
+        fprintf(stderr, "[ERROR] Failed to open directory '%s': %s\n",
+                path, strerror(errno));
+        return 1;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        if (skip_name && strcmp(entry->d_name, skip_name) == 0)
+            continue;
+
+        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+
+        if (lstat(full_path, &st) != 0) {
+            fprintf(stderr, "[ERROR] lstat failed for '%s': %s\n",
+                    full_path, strerror(errno));
+            continue;
+        }
+
+        if (S_ISDIR(st.st_mode)) {
+            if (calc_size(full_path, NULL, size) != 0) {
+                closedir(dir);
+                return 1;
+            }
+        } else if (S_ISREG(st.st_mode)) {
+            *size += st.st_size;
+        }
+    }
+
+    closedir(dir);
+    return 0;
+}
+
+int get_free_space(const char *path, unsigned long long *free_space) {
+    struct statvfs st;
+
+    *free_space = 0;
+
+    if (statvfs(path, &st) != 0)
+        return 1;
+
+    *free_space = (unsigned long long)st.f_bsize * st.f_bavail;
+    return 0;
+}
+
+void format_size(unsigned long long bytes, char *out, size_t size) {
+    if (bytes >= (unsigned long long)1024 * 1024 * 1024)
+        snprintf(out, size, "%.1f GiB", (double)bytes / (1024 * 1024 * 1024));
+    else if (bytes >= 1024 * 1024)
+        snprintf(out, size, "%.1f MiB", (double)bytes / (1024 * 1024));
+    else if (bytes >= 1024)
+        snprintf(out, size, "%.1f KiB", (double)bytes / 1024);
+    else
+        snprintf(out, size, "%llu B", bytes);
 }

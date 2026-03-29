@@ -50,4 +50,18 @@ const char *get_filesystem_type(const char *block_device);
  * permissions (0770) and media_rw (1023) as owner and group. */
 int setup_data_sdc2_media(void);
 
+/* Recursively calculates the total size of files in path.
+ * If skip_name is not NULL, entries with this name are skipped on the current level.
+ * Returns 0 on success, non-zero on failure. */
+int calc_size(const char *path, const char *skip_name, unsigned long long *size);
+
+/* Returns the free space in bytes at the given path.
+ * Returns 0 on success, non-zero on failure.
+ * Sets free_space to 0 if the path is not accessible. */
+int get_free_space(const char *path, unsigned long long *free_space);
+
+/* Converts bytes to a human readable string (B, KB, MB, GB).
+ * Result is written to out. */
+void format_size(unsigned long long bytes, char *out, size_t size);
+
 #endif /* UTILITIES_H */

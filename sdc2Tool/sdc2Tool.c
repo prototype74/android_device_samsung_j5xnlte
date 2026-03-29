@@ -29,6 +29,7 @@
 #include <sys/mount.h>
 
 #include "constants.h"
+#include "backup.h"
 #include "format.h"
 #include "wipe.h"
 #include "utilities.h"
@@ -37,6 +38,7 @@ enum sdc2ToolOptions {
     WIPE_DALVIK = 1,
     WIPE_DATA,
     FORMAT_DATA,
+    BACKUP_DATA,
     EXIT_SDC2TOOL,
 };
 
@@ -52,7 +54,8 @@ static void print_menu(void) {
     printf("1) Wipe Dalvik cache\n");
     printf("2) Wipe Data (keeps /data_sdc2/media)\n");
     printf("3) Format Data (ext4 or f2fs)\n");
-    printf("4) Exit\n");
+    printf("4) Backup Data\n");
+    printf("5) Exit\n");
     printf("\n");
 }
 
@@ -145,7 +148,7 @@ int main(void) {
     print_menu();
 
     while (running) {
-        user_input("Select option [1-4]: ", input, sizeof(input));
+        user_input("Select option [1-5]: ", input, sizeof(input));
 
         val = strtol(input, &endptr, 10);
 
@@ -256,11 +259,91 @@ int main(void) {
                 reset_screen("Formatted /data_sdc2 successfully");
                 break;
             }
+            case BACKUP_DATA: {
+                int dest_option;
+                unsigned long long backup_size = 0;
+                unsigned long long free_space = 0;
+                char backup_size_str[32];
+                char free_str[32];
+                const char *base_path;
+                const char *backup_dir;
+
+                clear_screen();
+                print_header();
+
+                if (get_backup_size(&backup_size) != 0) {
+                    confirm_enter();
+                    reset_screen("Error: Failed to calculate backup size");
+                    break;
+                }
+
+                format_size(backup_size, backup_size_str, sizeof(backup_size_str));
+                printf("Estimated backup size (uncompressed): %s\n", backup_size_str);
+                printf("Actual compressed size will likely be smaller.\n\n");
+                printf("Select backup destination:\n");
+
+                /* Calculate destination sizes */
+                get_free_space("/sdcard", &free_space);
+                format_size(free_space, free_str, sizeof(free_str));
+                printf("1) Internal storage (/sdcard)   [Free: %s]\n", free_str);
+
+                get_free_space("/data_sdc2/media/0", &free_space);
+                format_size(free_space, free_str, sizeof(free_str));
+                printf("2) microSD (/data_sdc2/media/0) [Free: %s]\n", free_str);
+
+                get_free_space("/usb-otg", &free_space);
+                format_size(free_space, free_str, sizeof(free_str));
+                printf("3) OTG (/usb-otg)               [Free: %s]\n", free_str);
+
+                printf("\n");
+                user_input("Select option [1-3], or any other to cancel: ", input, sizeof(input));
+
+                val = strtol(input, &endptr, 10);
+
+                if (endptr == input || (*endptr != '\n' && *endptr != '\0')) {
+                    dest_option = -1;
+                } else {
+                    dest_option = (int)val;
+                }
+
+                if (dest_option == 1) {
+                    base_path = "/sdcard";
+                    backup_dir = "/sdcard/TWRP/sdc2Tool/backup";
+                } else if (dest_option == 2) {
+                    base_path = "/data_sdc2";
+                    backup_dir = "/data_sdc2/media/0/TWRP/sdc2Tool/backup";
+                } else if (dest_option == 3) {
+                    base_path = "/usb-otg";
+                    backup_dir = "/usb-otg/TWRP/sdc2Tool/backup";
+                } else {
+                    reset_screen("Backup canceled.");
+                    break;
+                }
+
+                clear_screen();
+                print_header();
+
+                if (!confirm("This will create a backup of /data_sdc2. Continue?")) {
+                    reset_screen("Backup canceled.");
+                    break;
+                }
+
+                printf("\n");
+                result = backup_data_sdc2(base_path, backup_dir);
+                confirm_enter();
+
+                if (result != 0) {
+                    reset_screen("Error: Failed to backup /data_sdc2");
+                } else {
+                    reset_screen("Backup completed successfully");
+                }
+                break;
+            }
             case EXIT_SDC2TOOL:
                 running = 0;
                 break;
             default:
-                reset_screen("Invalid selection. Please choose 1-4.");
+                reset_screen("Invalid selection. Please choose 1-5.");
                 break;
         }
     }
