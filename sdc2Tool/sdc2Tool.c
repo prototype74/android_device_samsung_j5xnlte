@@ -27,10 +27,12 @@
 #include <unistd.h>
 #include <termios.h>
 #include <sys/mount.h>
+#include <limits.h>
 
 #include "constants.h"
 #include "backup.h"
 #include "format.h"
+#include "restore.h"
 #include "wipe.h"
 #include "utilities.h"
 
@@ -39,6 +41,7 @@ enum sdc2ToolOptions {
     WIPE_DATA,
     FORMAT_DATA,
     BACKUP_DATA,
+    RESTORE_DATA,
     EXIT_SDC2TOOL,
 };
 
@@ -55,7 +58,8 @@ static void print_menu(void) {
     printf("2) Wipe Data (keeps /data_sdc2/media)\n");
     printf("3) Format Data (ext4 or f2fs)\n");
     printf("4) Backup Data\n");
-    printf("5) Exit\n");
+    printf("5) Restore Data\n");
+    printf("6) Exit\n");
     printf("\n");
 }
 
@@ -148,7 +152,7 @@ int main(void) {
     print_menu();
 
     while (running) {
-        user_input("Select option [1-5]: ", input, sizeof(input));
+        user_input("Select option [1-6]: ", input, sizeof(input));
 
         val = strtol(input, &endptr, 10);
 
@@ -339,11 +343,139 @@ int main(void) {
                 }
                 break;
             }
+            case RESTORE_DATA: {
+                int src_option;
+                int backup_count;
+                int backup_choice;
+                char backup_paths[MAX_BACKUPS][PATH_MAX];
+                char restore_size_str[32];
+                char available_str[32];
+                unsigned long long restore_size = 0;
+                unsigned long long available_space = 0;
+                const char *base_path;
+                const char *backup_dir;
+                const char *backup_name;
+                const char *selected_backup;
+                char select_prompt[64];
+                int i;
+
+                clear_screen();
+                print_header();
+                printf("Select restore source:\n");
+                printf("1) Internal storage (/sdcard)\n");
+                printf("2) microSD (/data_sdc2/media/0)\n");
+                printf("3) OTG (/usb-otg)\n");
+
+                printf("\n");
+                user_input("Select option [1-3], or any other to cancel: ", input, sizeof(input));
+
+                val = strtol(input, &endptr, 10);
+                if (endptr == input || (*endptr != '\n' && *endptr != '\0'))
+                    src_option = -1;
+                else
+                    src_option = (int)val;
+
+                if (src_option == 1) {
+                    base_path = "/sdcard";
+                    backup_dir = "/sdcard/TWRP/sdc2Tool/backup";
+                } else if (src_option == 2) {
+                    base_path = "/data_sdc2";
+                    backup_dir = "/data_sdc2/media/0/TWRP/sdc2Tool/backup";
+                } else if (src_option == 3) {
+                    base_path = "/usb-otg";
+                    backup_dir = "/usb-otg/TWRP/sdc2Tool/backup";
+                } else {
+                    reset_screen("Restore canceled.");
+                    break;
+                }
+
+                clear_screen();
+                print_header();
+
+                backup_count = list_backups(base_path, backup_dir, backup_paths);
+
+                if (backup_count == 0) {
+                    confirm_enter();
+                    reset_screen("Restore canceled.");
+                    break;
+                }
+
+                printf("Available backups:\n");
+                for (i = 0; i < backup_count; i++) {
+                    backup_name = strrchr(backup_paths[i], '/');
+                    backup_name = backup_name ? backup_name + 1 : backup_paths[i];
+                    printf("%d) %s\n", i + 1, backup_name);
+                }
+                printf("\n");
+
+                if (backup_count == 1) {
+                    snprintf(select_prompt, sizeof(select_prompt),
+                            "Select option [1], or any other to cancel: ");
+                } else {
+                    snprintf(select_prompt, sizeof(select_prompt),
+                            "Select option [1-%d], or any other to cancel: ", backup_count);
+                }
+                user_input(select_prompt, input, sizeof(input));
+
+                val = strtol(input, &endptr, 10);
+                if (endptr == input || (*endptr != '\n' && *endptr != '\0'))
+                    backup_choice = -1;
+                else
+                    backup_choice = (int)val;
+
+                if (backup_choice < 1 || backup_choice > backup_count) {
+                    reset_screen("Restore canceled.");
+                    break;
+                }
+
+                clear_screen();
+                print_header();
+
+                selected_backup = backup_paths[backup_choice - 1];
+                backup_name = strrchr(selected_backup, '/');
+                printf("Selected backup archive: %s\n", backup_name ? backup_name + 1 : selected_backup);
+
+                // Space check
+                if (get_restore_size(selected_backup, &restore_size) != 0) {
+                    confirm_enter();
+                    reset_screen("Error: Failed to calculate restore size.");
+                    break;
+                }
+
+                if (get_available_space_after_wipe(&available_space) != 0) {
+                    confirm_enter();
+                    reset_screen("Error: Failed to calculate available space on /data_sdc2.");
+                    break;
+                }
+
+                format_size(restore_size, restore_size_str, sizeof(restore_size_str));
+                format_size(available_space, available_str, sizeof(available_str));
+                printf("Estimated restore size: %s\n", restore_size_str);
+                printf("Available space on /data_sdc2: %s\n\n", available_str);
+
+                if (available_space < restore_size)
+                    printf("[WARNING] Available space may not be sufficient.\n\n");
+
+                if (!confirm("Wipes /data_sdc2 (keeping /data_sdc2/media) and restores the selected backup. Continue?")) {
+                    reset_screen("Restore canceled.");
+                    break;
+                }
+
+                printf("\n");
+                result = restore_data_sdc2(base_path, selected_backup);
+                confirm_enter();
+
+                if (result != 0)
+                    reset_screen("Error: Failed to restore /data_sdc2.");
+                else
+                    reset_screen("Restore completed successfully.");
+                break;
+            }
             case EXIT_SDC2TOOL:
                 running = 0;
                 break;
             default:
-                reset_screen("Invalid selection. Please choose 1-5.");
+                reset_screen("Invalid selection. Please choose 1-6.");
                 break;
         }
     }
