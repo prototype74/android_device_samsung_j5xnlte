@@ -24,12 +24,14 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <limits.h>
 
 #include "constants.h"
 #include "backup.h"
+#include "selinux_context.h"
 #include "utilities.h"
 
 // Generates the full backup file path with timestamp.
@@ -139,7 +141,8 @@ int get_backup_size(unsigned long long *size) {
 }
 
 int backup_data_sdc2(const char *base_path, const char *backup_dir) {
-    char backup_path[256];
+    char backup_path[PATH_MAX];
+    char marker_path[PATH_MAX];
     unsigned long long backup_size = 0;
     unsigned long long free_space = 0;
     const char *args[16];
@@ -163,6 +166,18 @@ int backup_data_sdc2(const char *base_path, const char *backup_dir) {
     if (build_backup_path(backup_dir, backup_path, sizeof(backup_path)) != 0)
         return 1;
 
+    snprintf(marker_path, sizeof(marker_path), "%s.sdc2tool", backup_path);
+
+    /* Creates a .sdc2tool file next to the backup archive.
+    * Contains SELinux contexts for all backed-up files and directories,
+    * and also serves as a marker to identify valid sdc2Tool backups. */
+    printf("Saving SELinux contexts...\n");
+    if (save_selinux_contexts(DATA_MOUNT_POINT, "media", marker_path) != 0) {
+        fprintf(stderr, "[ERROR] Failed to save SELinux contexts\n");
+        unlink(marker_path);
+        return 1;
+    }
+
     printf("Backing up %s to %s...\n", DATA_MOUNT_POINT, backup_path);
 
     args[argc++] = "/sbin/tar";
@@ -180,6 +195,7 @@ int backup_data_sdc2(const char *base_path, const char *backup_dir) {
         printf("[WARNING] Backup completed with warnings\n");
     else if (result != 0) {
         fprintf(stderr, "[ERROR] Failed to backup %s\n", DATA_MOUNT_POINT);
+        unlink(marker_path);
         return result;
     }
 

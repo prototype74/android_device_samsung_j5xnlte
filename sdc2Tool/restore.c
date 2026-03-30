@@ -27,9 +27,11 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "constants.h"
 #include "restore.h"
+#include "selinux_context.h"
 #include "wipe.h"
 #include "utilities.h"
 
@@ -72,6 +74,9 @@ static int check_source(const char *base_path) {
 int list_backups(const char *base_path, const char *backup_dir, char paths[][PATH_MAX]) {
     DIR *dir;
     struct dirent *entry;
+    struct stat st;
+    char archive_path[PATH_MAX];
+    char marker_path[PATH_MAX];
     int count = 0;
 
     if (check_source(base_path) != 0)
@@ -88,7 +93,14 @@ int list_backups(const char *base_path, const char *backup_dir, char paths[][PAT
         if (!is_valid_backup_name(entry->d_name))
             continue;
 
-        snprintf(paths[count], PATH_MAX, "%s/%s", backup_dir, entry->d_name);
+        snprintf(archive_path, sizeof(archive_path), "%s/%s", backup_dir, entry->d_name);
+        snprintf(marker_path, sizeof(marker_path), "%s.sdc2tool", archive_path);
+
+        // Skip if marker is missing
+        if (stat(marker_path, &st) != 0)
+            continue;
+
+        snprintf(paths[count], PATH_MAX, "%s", archive_path);
         count++;
     }
 
@@ -154,8 +166,24 @@ int get_restore_size(const char *archive_path, unsigned long long *size) {
     return 0;
 }
 
+// Check if the .sdc2tool marker file exists next to the archive.
+static int check_backup_marker(const char *archive_path, char *marker_out, size_t marker_size) {
+    struct stat st;
+
+    snprintf(marker_out, marker_size, "%s.sdc2tool", archive_path);
+
+    if (stat(marker_out, &st) != 0) {
+        fprintf(stderr, "[ERROR] Backup marker '%s' not found.\n"
+                        "This archive was not created by sdc2Tool or is missing SELinux context data.\n", marker_out);
+        return 1;
+    }
+
+    return 0;
+}
+
 int restore_data_sdc2(const char *base_path, const char *archive_path) {
     struct stat st;
+    char marker_path[PATH_MAX];
     const char *args[16];
     int argc = 0;
     int result;
@@ -182,6 +210,10 @@ int restore_data_sdc2(const char *base_path, const char *archive_path) {
     if (check_source(base_path) != 0)
         return 1;
 
+    printf("Validating backup...\n");
+    if (check_backup_marker(archive_path, marker_path, sizeof(marker_path)) != 0)
+        return 1;
+
     if (wipe_data_sdc2() != 0) {
         fprintf(stderr, "[ERROR] Failed to wipe '%s' before restore\n",
                 DATA_MOUNT_POINT);
@@ -204,6 +236,13 @@ int restore_data_sdc2(const char *base_path, const char *archive_path) {
     else if (result != 0) {
         fprintf(stderr, "[ERROR] Failed to restore %s\n", DATA_MOUNT_POINT);
         return result;
+    }
+
+    // Restore SELinux contexts from .sdc2tool file
+    printf("Restoring SELinux contexts...\n");
+    if (restore_selinux_contexts(DATA_MOUNT_POINT, marker_path) != 0) {
+        fprintf(stderr, "[ERROR] Failed to restore SELinux contexts\n");
+        return 1;
     }
 
     printf("Restore completed successfully\n");
