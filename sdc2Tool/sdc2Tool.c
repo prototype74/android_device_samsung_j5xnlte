@@ -45,10 +45,13 @@ enum sdc2ToolOptions {
     EXIT_SDC2TOOL,
 };
 
-static void print_header(void) {
+static void print_header(const char *custom_title) {
     printf("\n");
     printf("================================\n");
-    printf("       SDC2 Tool\n");
+    if (custom_title)
+        printf("       %s\n", custom_title);
+    else
+        printf("       SDC2 Tool\n");
     printf("================================\n");
     printf("\n");
 }
@@ -69,7 +72,7 @@ static void clear_screen(void) {
 
 static void reset_screen(const char *note) {
     clear_screen();
-    print_header();
+    print_header(NULL);
     if (note) {
         printf("%s\n\n", note);
     }
@@ -142,7 +145,7 @@ int main(void) {
     int running = 1;
     int result = 0;
 
-    print_header();
+    print_header(NULL);
 
     if (is_microsd_available() != 0) {
         fprintf(stderr, "[ERROR] No microSD card detected\n");
@@ -165,7 +168,7 @@ int main(void) {
         switch (option) {
             case WIPE_DALVIK:
                 clear_screen();
-                print_header();
+                print_header("WIPE DALVIK");
                 if (!confirm("This will wipe the Dalvik cache. Continue?")) {
                     reset_screen("Wipe canceled.");
                     break;
@@ -181,7 +184,7 @@ int main(void) {
                 break;
             case WIPE_DATA:
                 clear_screen();
-                print_header();
+                print_header("WIPE DATA");
                 if (!confirm("This will wipe /data_sdc2 but keep /data_sdc2/media. Continue?")) {
                     reset_screen("Wipe canceled.");
                     break;
@@ -200,7 +203,7 @@ int main(void) {
                 fs_type_t fs_type;
 
                 clear_screen();
-                print_header();
+                print_header("FORMAT DATA");
                 printf("Mount point: %s\n", DATA_MOUNT_POINT);
                 printf("Current filesystem: %s\n\n", get_filesystem_type(DATA_PART));
                 printf("Select filesystem type:\n");
@@ -227,7 +230,7 @@ int main(void) {
                 }
 
                 clear_screen();
-                print_header();
+                print_header("FORMAT DATA");
 
                 if (!confirm("Formatting /data_sdc2 will erase all data, and this action cannot be undone! Continue?")) {
                     reset_screen("Format canceled.");
@@ -273,7 +276,7 @@ int main(void) {
                 const char *backup_dir;
 
                 clear_screen();
-                print_header();
+                print_header("BACKUP DATA");
 
                 if (get_backup_size(&backup_size) != 0) {
                     confirm_enter();
@@ -325,7 +328,7 @@ int main(void) {
                 }
 
                 clear_screen();
-                print_header();
+                print_header("BACKUP DATA");
 
                 if (!confirm("This will create a backup of /data_sdc2. Continue?")) {
                     reset_screen("Backup canceled.");
@@ -360,7 +363,7 @@ int main(void) {
                 int i;
 
                 clear_screen();
-                print_header();
+                print_header("RESTORE DATA");
                 printf("Select restore source:\n");
                 printf("1) Internal storage (/sdcard)\n");
                 printf("2) microSD (/data_sdc2/media/0)\n");
@@ -390,7 +393,7 @@ int main(void) {
                 }
 
                 clear_screen();
-                print_header();
+                print_header("RESTORE DATA");
 
                 backup_count = list_backups(base_path, backup_dir, backup_paths);
 
@@ -429,7 +432,7 @@ int main(void) {
                 }
 
                 clear_screen();
-                print_header();
+                print_header("RESTORE DATA");
 
                 selected_backup = backup_paths[backup_choice - 1];
                 backup_name = strrchr(selected_backup, '/');
