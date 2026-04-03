@@ -144,7 +144,7 @@ int backup_data_sdc2(const char *base_path, const char *backup_dir) {
 
     printf("Backing up %s to %s...\n", DATA_MOUNT_POINT, backup_path);
 
-    args[argc++] = "/sbin/tar";
+    args[argc++] = TAR_PATH;
     args[argc++] = "-czf";
     args[argc++] = backup_path;
     args[argc++] = "-C";
@@ -153,7 +153,7 @@ int backup_data_sdc2(const char *base_path, const char *backup_dir) {
     args[argc++] = ".";
     args[argc]   = NULL;
 
-    result = run_command("/sbin/tar", args);
+    result = run_command(TAR_PATH, args);
 
     if (result == 1)
         printf("[WARNING] Backup completed with warnings\n");

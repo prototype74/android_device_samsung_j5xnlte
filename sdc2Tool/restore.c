@@ -222,14 +222,14 @@ int restore_data_sdc2(const char *base_path, const char *archive_path) {
 
     printf("Restoring %s from %s...\n", DATA_MOUNT_POINT, archive_path);
 
-    args[argc++] = "/sbin/tar";
+    args[argc++] = TAR_PATH;
     args[argc++] = "-xzf";
     args[argc++] = archive_path;
     args[argc++] = "-C";
     args[argc++] = DATA_MOUNT_POINT;
     args[argc]   = NULL;
 
-    result = run_command("/sbin/tar", args);
+    result = run_command(TAR_PATH, args);
 
     if (result == 1)
         printf("[WARNING] Restore completed with warnings\n");

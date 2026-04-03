@@ -29,4 +29,6 @@
 #define DATA_MEDIA         DATA_MOUNT_POINT "/media"
 #define DATA_MEDIA_0       DATA_MOUNT_POINT "/media/0"
 
+#define TAR_PATH  "/sbin/tar"
+
 #endif /* CONSTANTS_H */
