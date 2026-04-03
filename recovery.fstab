@@ -17,7 +17,7 @@
 /system_sdc2        ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/SYSTEM        flags=display="System (SDC2)";backup=1;wipeingui;removable
 /system_image_sdc2  emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/SYSTEM        flags=display="System Image (SDC2)";flashimg=1;backup=1;removable
 /cache_sdc2         ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/cache         flags=display="Cache (SDC2)";backup=1;wipeingui;removable
-/data_sdc2          ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/userdata      flags=display="Data (SDC2)";backup=1;wipeingui;encryptable=footer;length=-20480;removable
+/data_sdc2          ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/userdata      flags=display="Data (SDC2)";encryptable=footer;length=-20480;removable
 /vendor_sdc2        ext4      /dev/block/platform/soc.0/7864900.sdhci/by-name/vendor        flags=display="Vendor (SDC2)";backup=1;wipeingui;removable
 /vendor_image_sdc2  emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/vendor        flags=display="Vendor Image (SDC2)";flashimg=1;backup=1;removable
 /recovery_sdc2      emmc      /dev/block/platform/soc.0/7864900.sdhci/by-name/recovery      flags=display="Recovery (SDC2)";flashimg=1;backup=1;removable
