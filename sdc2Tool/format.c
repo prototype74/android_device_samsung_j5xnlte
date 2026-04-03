@@ -59,6 +59,41 @@ static int get_block_device_size(const char *path, uint64_t *size) {
     return 0;
 }
 
+// Overwrites the last 20480 bytes of the partition with zeros to wipe the crypto footer
+static int wipe_crypto_footer(const char *path, uint64_t part_size) {
+    int fd;
+    char zeros[20 * 1024];
+    uint64_t offset;
+
+    offset = part_size - sizeof(zeros);
+
+    fd = open(path, O_WRONLY);
+    if (fd < 0) {
+        fprintf(stderr, "[ERROR] Failed to open '%s' for wiping crypto footer: %s\n",
+                path, strerror(errno));
+        return 1;
+    }
+
+    if (lseek64(fd, (off64_t)offset, SEEK_SET) < 0) {
+        fprintf(stderr, "[ERROR] Failed to seek to crypto footer: %s\n",
+                strerror(errno));
+        close(fd);
+        return 1;
+    }
+
+    memset(zeros, 0, sizeof(zeros));
+
+    if (write(fd, zeros, sizeof(zeros)) != (ssize_t)sizeof(zeros)) {
+        fprintf(stderr, "[ERROR] Failed to wipe crypto footer: %s\n",
+                strerror(errno));
+        close(fd);
+        return 1;
+    }
+
+    close(fd);
+    return 0;
+}
+
 // Formats the userdata partition on microSD as ext4 using mke2fs
 static int format_ext4(const char *path, uint64_t block_count) {
     char block_count_str[32];
@@ -132,10 +167,17 @@ int format_data_sdc2(fs_type_t fs_type) {
         result = format_ext4(DATA_PART, block_count);
     }
 
-    if (result != 0)
+    if (result != 0) {
         fprintf(stderr, "[ERROR] Failed to format %s\n", DATA_MOUNT_POINT);
-    else
-        printf("Formatted %s successfully\n", DATA_MOUNT_POINT);
+        return result;
+    }
 
+    printf("Wiping crypto footer...\n");
+    if (wipe_crypto_footer(DATA_PART, part_size) != 0) {
+        return 1;
+    }
+    printf("Wiped crypto footer successfully\n");
+
+    printf("Formatted %s successfully\n", DATA_MOUNT_POINT);
     return 0;
 }
