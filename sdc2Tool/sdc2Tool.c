@@ -205,6 +205,7 @@ int main(void) {
                 clear_screen();
                 print_header("FORMAT DATA");
                 printf("Mount point: %s\n", DATA_MOUNT_POINT);
+                printf("Encrypted: %s\n", is_data_sdc2_encrypted() ? "Yes" : "No");
                 printf("Current filesystem: %s\n\n", get_filesystem_type(DATA_PART));
                 printf("Select filesystem type:\n");
                 printf("1) EXT4\n");

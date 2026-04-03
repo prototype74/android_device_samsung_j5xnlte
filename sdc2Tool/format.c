@@ -62,7 +62,7 @@ static int get_block_device_size(const char *path, uint64_t *size) {
 // Overwrites the last 20480 bytes of the partition with zeros to wipe the crypto footer
 static int wipe_crypto_footer(const char *path, uint64_t part_size) {
     int fd;
-    char zeros[20 * 1024];
+    char zeros[CRYPTO_FOOTER_SIZE];
     uint64_t offset;
 
     offset = part_size - sizeof(zeros);

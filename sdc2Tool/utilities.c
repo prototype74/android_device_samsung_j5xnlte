@@ -32,6 +32,8 @@
 #include <sys/statvfs.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
 
 #include "constants.h"
 #include "utilities.h"
@@ -323,4 +325,51 @@ void format_size(unsigned long long bytes, char *out, size_t size) {
         snprintf(out, size, "%.1f KiB", (double)bytes / 1024);
     else
         snprintf(out, size, "%llu B", bytes);
+}
+
+int is_data_sdc2_encrypted(void) {
+    int fd;
+    uint64_t part_size;
+    uint64_t offset;
+    char footer[CRYPTO_FOOTER_SIZE];
+    int count = 0;
+    size_t i;
+
+    fd = open(DATA_PART, O_RDONLY);
+    if (fd < 0)
+        return 0;
+
+    if (ioctl(fd, BLKGETSIZE64, &part_size) != 0) {
+        close(fd);
+        return 0;
+    }
+
+    offset = part_size - CRYPTO_FOOTER_SIZE;
+
+    if (lseek64(fd, (off64_t)offset, SEEK_SET) < 0) {
+        close(fd);
+        return 0;
+    }
+
+    if (read(fd, footer, sizeof(footer)) != sizeof(footer)) {
+        close(fd);
+        return 0;
+    }
+
+    close(fd);
+
+    /*
+     * Check the first 16384 bytes for non-zero content.
+     * Android encryption methods write at least 16384 bytes. A minimum threshold
+     * of 256 non-zero bytes is required to avoid false positives from single corrupt
+     * or stray bytes.
+     * This approach is vendor-agnostic since Samsung uses a non-standard,
+     * non-deterministic crypto footer magic.
+     */
+    for (i = 0; i < CRYPTO_FOOTER_CHECK_SIZE; i++) {
+        if (footer[i] != 0)
+            count++;
+    }
+
+    return count >= CRYPTO_FOOTER_MIN_NONZERO;
 }

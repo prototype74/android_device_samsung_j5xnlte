@@ -25,6 +25,9 @@
 
 #define STRINGIFY(x) #x
 #define TO_STRING(x) STRINGIFY(x)
+#define CRYPTO_FOOTER_SIZE       20480  // crypto footer size (20 * 1024)
+#define CRYPTO_FOOTER_CHECK_SIZE 16384  // min footer size used by most encryption methods
+#define CRYPTO_FOOTER_MIN_NONZERO  256  // min non-zero bytes to consider partition encrypted
 
 /* Checks if the microSD card is present */
 int is_microsd_available(void);
@@ -67,5 +70,9 @@ int get_free_space(const char *path, unsigned long long *free_space);
 /* Converts bytes to a human readable string (B, KB, MB, GB).
  * Result is written to out. */
 void format_size(unsigned long long bytes, char *out, size_t size);
+
+/* Checks if /data_sdc2 has a valid Android dm-crypt footer.
+ * Returns 1 if encrypted, 0 if not (or on error). */
+int is_data_sdc2_encrypted(void);
 
 #endif /* UTILITIES_H */
