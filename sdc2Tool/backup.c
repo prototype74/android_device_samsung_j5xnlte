@@ -58,42 +58,6 @@ static int build_backup_path(const char *backup_dir, char *out, size_t size) {
     return 0;
 }
 
-/*
- * Creates a directory and all missing parent directories.
- * Similar to mkdir -p. Returns 0 on success, non-zero on failure.
- */
-static int mkdir_p(const char *path, mode_t mode) {
-    char tmp[PATH_MAX];
-    char *p;
-    size_t len;
-
-    snprintf(tmp, sizeof(tmp), "%s", path);
-    len = strlen(tmp);
-
-    if (len > 0 && tmp[len - 1] == '/')
-        tmp[len - 1] = '\0';
-
-    for (p = tmp + 1; *p; p++) {
-        if (*p == '/') {
-            *p = '\0';
-            if (mkdir(tmp, mode) != 0 && errno != EEXIST) {
-                fprintf(stderr, "[ERROR] Failed to create directory '%s': %s\n",
-                        tmp, strerror(errno));
-                return 1;
-            }
-            *p = '/';
-        }
-    }
-
-    if (mkdir(tmp, mode) != 0 && errno != EEXIST) {
-        fprintf(stderr, "[ERROR] Failed to create directory '%s': %s\n",
-                tmp, strerror(errno));
-        return 1;
-    }
-
-    return 0;
-}
-
 static int check_destination(const char *base_path) {
     struct stat st;
 

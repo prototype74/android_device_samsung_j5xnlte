@@ -26,6 +26,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -139,6 +140,38 @@ int unmount_all(const char *block_device) {
     return 0;
 }
 
+int mkdir_p(const char *path, mode_t mode) {
+    char tmp[PATH_MAX];
+    char *p;
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    len = strlen(tmp);
+
+    if (len > 0 && tmp[len - 1] == '/')
+        tmp[len - 1] = '\0';
+
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            if (mkdir(tmp, mode) != 0 && errno != EEXIST) {
+                fprintf(stderr, "[ERROR] Failed to create directory '%s': %s\n",
+                        tmp, strerror(errno));
+                return 1;
+            }
+            *p = '/';
+        }
+    }
+
+    if (mkdir(tmp, mode) != 0 && errno != EEXIST) {
+        fprintf(stderr, "[ERROR] Failed to create directory '%s': %s\n",
+                tmp, strerror(errno));
+        return 1;
+    }
+
+    return 0;
+}
+
 int run_command(const char *path, const char *const args[]) {
     pid_t pid;
     int status;
@@ -204,21 +237,15 @@ const char *get_filesystem_type(const char *block_device) {
 }
 
 int setup_data_sdc2_media(void) {
-    if (mkdir(DATA_MEDIA, 0770) != 0) {
+    if (mkdir_p(DATA_MEDIA_0, 0770) != 0) {
         fprintf(stderr, "[ERROR] Failed to create '%s': %s\n",
-                DATA_MEDIA, strerror(errno));
+                DATA_MEDIA_0, strerror(errno));
         return 1;
     }
 
     if (chown(DATA_MEDIA, 1023, 1023) != 0) {
         fprintf(stderr, "[ERROR] Failed to set owner for '%s': %s\n",
                 DATA_MEDIA, strerror(errno));
-        return 1;
-    }
-
-    if (mkdir(DATA_MEDIA_0, 0770) != 0) {
-        fprintf(stderr, "[ERROR] Failed to create '%s': %s\n",
-                DATA_MEDIA_0, strerror(errno));
         return 1;
     }
 

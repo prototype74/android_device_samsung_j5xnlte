@@ -38,6 +38,10 @@ int is_mounted(const char* mount_point);
  * Returns 0 on success, non-zero on failure. */
 int unmount_all(const char *block_device);
 
+/* Creates a directory and all missing parent directories (like mkdir -p).
+ * Returns 0 on success, non-zero on failure. */
+int mkdir_p(const char *path, mode_t mode);
+
 /* Forks a child process and executes the given binary with args.
  * Returns the exit code of the process, or -1 on failure. */
 int run_command(const char *path, const char *const args[]);
