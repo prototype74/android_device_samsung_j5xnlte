@@ -130,18 +130,6 @@ int backup_data_sdc2(const char *base_path, const char *backup_dir) {
     if (build_backup_path(backup_dir, backup_path, sizeof(backup_path)) != 0)
         return 1;
 
-    snprintf(marker_path, sizeof(marker_path), "%s.sdc2tool", backup_path);
-
-    /* Creates a .sdc2tool file next to the backup archive.
-    * Contains SELinux contexts for all backed-up files and directories,
-    * and also serves as a marker to identify valid sdc2Tool backups. */
-    printf("Saving SELinux contexts...\n");
-    if (save_selinux_contexts(DATA_MOUNT_POINT, "media", marker_path) != 0) {
-        fprintf(stderr, "[ERROR] Failed to save SELinux contexts\n");
-        unlink(marker_path);
-        return 1;
-    }
-
     printf("Backing up %s to %s...\n", DATA_MOUNT_POINT, backup_path);
 
     args[argc++] = TAR_PATH;
@@ -159,8 +147,19 @@ int backup_data_sdc2(const char *base_path, const char *backup_dir) {
         printf("[WARNING] Backup completed with warnings\n");
     else if (result != 0) {
         fprintf(stderr, "[ERROR] Failed to backup %s\n", DATA_MOUNT_POINT);
-        unlink(marker_path);
         return result;
+    }
+
+    snprintf(marker_path, sizeof(marker_path), "%s.sdc2tool", backup_path);
+
+    /* Creates a .sdc2tool file next to the backup archive only after tar succeeds.
+     * Contains SELinux contexts for all backed-up files and directories,
+     * and also serves as a marker to identify valid sdc2Tool backups. */
+    printf("Saving SELinux contexts...\n");
+    if (save_selinux_contexts(DATA_MOUNT_POINT, "media", marker_path) != 0) {
+        fprintf(stderr, "[ERROR] Failed to save SELinux contexts\n");
+        unlink(marker_path);
+        return 1;
     }
 
     printf("Backup saved to %s\n", backup_path);
