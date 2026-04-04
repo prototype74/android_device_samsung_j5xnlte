@@ -31,6 +31,7 @@
 
 #include "constants.h"
 #include "backup.h"
+#include "benchmark.h"
 #include "format.h"
 #include "restore.h"
 #include "wipe.h"
@@ -42,6 +43,7 @@ enum sdc2ToolOptions {
     FORMAT_DATA,
     BACKUP_DATA,
     RESTORE_DATA,
+    BENCHMARK,
     EXIT_SDC2TOOL,
 };
 
@@ -62,7 +64,8 @@ static void print_menu(void) {
     printf("3) Format Data (ext4 or f2fs)\n");
     printf("4) Backup Data\n");
     printf("5) Restore Data\n");
-    printf("6) Exit\n");
+    printf("6) Benchmark microSD\n");
+    printf("7) Exit\n");
     printf("\n");
 }
 
@@ -155,7 +158,7 @@ int main(void) {
     print_menu();
 
     while (running) {
-        user_input("Select option [1-6]: ", input, sizeof(input));
+        user_input("Select option [1-7]: ", input, sizeof(input));
 
         val = strtol(input, &endptr, 10);
 
@@ -475,11 +478,26 @@ int main(void) {
                     reset_screen("Restore completed successfully.");
                 break;
             }
+            case BENCHMARK:
+                clear_screen();
+                print_header("BENCHMARK MICROSD");
+                if (!confirm("This benchmark measures your microSD's read and write speeds "
+                             "and checks whether it's suitable for running Android ROMs.\n"
+                             "Continue?")) {
+                    reset_screen("Benchmark canceled.");
+                    break;
+                }
+                clear_screen();
+                print_header("BENCHMARK MICROSD");
+                result = benchmark_microsd();
+                confirm_enter();
+                reset_screen(result != 0 ? "Error: Benchmark failed." : "Benchmark completed.");
+                break;
             case EXIT_SDC2TOOL:
                 running = 0;
                 break;
             default:
-                reset_screen("Invalid selection. Please choose 1-6.");
+                reset_screen("Invalid selection. Please choose 1-7.");
                 break;
         }
     }
