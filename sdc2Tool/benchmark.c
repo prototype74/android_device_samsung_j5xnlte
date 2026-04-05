@@ -42,6 +42,8 @@
 #define BENCHMARK_SIZE_MB        1024
 #define BENCHMARK_BLOCK_MB       1
 #define MB                       (1024 * 1024)
+#define BENCHMARK_4K_BLOCK       4096
+#define BENCHMARK_4K_OPS         4096  // number of random 4K operations
 
 // Pointer to temp file path for signal handler cleanup
 static const char *g_benchmark_file = NULL;
@@ -118,9 +120,11 @@ static int run_write_benchmark(const char *path, double *mbps_out) {
             free(buf);
             return 1;
         }
-        printf("\rWriting... %d / %d MiB", (i + 1) * BENCHMARK_BLOCK_MB,
-               BENCHMARK_SIZE_MB);
-        fflush(stdout);
+        if ((i + 1) % 64 == 0 || i == blocks - 1) {
+            printf("\rWriting... %d / %d MiB", (i + 1) * BENCHMARK_BLOCK_MB,
+                BENCHMARK_SIZE_MB);
+            fflush(stdout);
+        }
     }
 
     // Flush kernel buffers to get accurate timing
@@ -192,9 +196,11 @@ static int run_read_benchmark(const char *path, double *mbps_out) {
             free(buf);
             return 1;
         }
-        printf("\rReading... %d / %d MiB", (i + 1) * BENCHMARK_BLOCK_MB,
-               BENCHMARK_SIZE_MB);
-        fflush(stdout);
+        if ((i + 1) % 64 == 0 || i == blocks - 1) {
+            printf("\rReading... %d / %d MiB", (i + 1) * BENCHMARK_BLOCK_MB,
+                BENCHMARK_SIZE_MB);
+            fflush(stdout);
+        }
     }
 
     elapsed = get_time_seconds() - start;
@@ -209,13 +215,115 @@ static int run_read_benchmark(const char *path, double *mbps_out) {
     return 0;
 }
 
+static const char *app_class_rating(double iops_read, double iops_write) {
+    if (iops_read >= 4000.0 && iops_write >= 2000.0)
+        return "A2";
+    if (iops_read >= 1500.0 && iops_write >= 500.0)
+        return "A1";
+    return "Below A1";
+}
+
+static int run_4k_write_benchmark(const char *path, off_t file_size, double *iops_out) {
+    int fd;
+    char buf[BENCHMARK_4K_BLOCK];
+    off_t max_blocks;
+    double start, elapsed;
+    int i;
+
+    memset(buf, 0xBB, sizeof(buf));
+
+    max_blocks = file_size / BENCHMARK_4K_BLOCK;
+
+    fd = open(path, O_WRONLY);
+    if (fd < 0) {
+        fprintf(stderr, "[ERROR] Failed to open benchmark file for 4K write: %s\n",
+                strerror(errno));
+        return 1;
+    }
+
+    printf("Running 4K write test (%d ops)...", BENCHMARK_4K_OPS);
+    fflush(stdout);
+
+    start = get_time_seconds();
+
+    for (i = 0; i < BENCHMARK_4K_OPS; i++) {
+        off_t offset = (off_t)(rand() % max_blocks) * BENCHMARK_4K_BLOCK;
+        if (lseek(fd, offset, SEEK_SET) < 0 ||
+            write(fd, buf, BENCHMARK_4K_BLOCK) != BENCHMARK_4K_BLOCK) {
+            fprintf(stderr, "\n[ERROR] 4K write failed at op %d: %s\n",
+                    i, strerror(errno));
+            close(fd);
+            return 1;
+        }
+
+    }
+
+    fsync(fd);
+    elapsed = get_time_seconds() - start;
+    close(fd);
+
+    *iops_out = (double)BENCHMARK_4K_OPS / elapsed;
+    printf("\r4K Write: %.0f IOPS (%.1f MiB/s)      \n",
+           *iops_out, (*iops_out * BENCHMARK_4K_BLOCK) / MB);
+
+    return 0;
+}
+
+static int run_4k_read_benchmark(const char *path, off_t file_size, double *iops_out) {
+    int fd;
+    char buf[BENCHMARK_4K_BLOCK];
+    off_t max_blocks;
+    double start, elapsed;
+    int i;
+
+    max_blocks = file_size / BENCHMARK_4K_BLOCK;
+
+    if (drop_page_cache() != 0)
+        fprintf(stderr, "[WARN] Failed to drop page cache, 4K read results may be inaccurate\n");
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        fprintf(stderr, "[ERROR] Failed to open benchmark file for 4K read: %s\n",
+                strerror(errno));
+        return 1;
+    }
+
+    printf("Running 4K read test (%d ops)...", BENCHMARK_4K_OPS);
+    fflush(stdout);
+
+    start = get_time_seconds();
+
+    for (i = 0; i < BENCHMARK_4K_OPS; i++) {
+        off_t offset = (off_t)(rand() % max_blocks) * BENCHMARK_4K_BLOCK;
+        if (lseek(fd, offset, SEEK_SET) < 0 ||
+            read(fd, buf, BENCHMARK_4K_BLOCK) != BENCHMARK_4K_BLOCK) {
+            fprintf(stderr, "\n[ERROR] 4K read failed at op %d: %s\n",
+                    i, strerror(errno));
+            close(fd);
+            return 1;
+        }
+    }
+
+    elapsed = get_time_seconds() - start;
+    close(fd);
+
+    *iops_out = (double)BENCHMARK_4K_OPS / elapsed;
+    printf("\r4K Read:  %.0f IOPS (%.1f MiB/s)      \n",
+           *iops_out, (*iops_out * BENCHMARK_4K_BLOCK) / MB);
+
+    return 0;
+}
+
 int benchmark_microsd(void) {
     struct stat st;
     struct sigaction sa;
     double write_mbps = 0.0;
     double read_mbps = 0.0;
+    double iops_4k_write = 0.0;
+    double iops_4k_read = 0.0;
     unsigned long long free_space = 0;
     unsigned long long required = (unsigned long long)BENCHMARK_SIZE_MB * MB;
+    off_t bench_file_size = (off_t)BENCHMARK_SIZE_MB * MB;
     char free_str[32];
     char req_str[32];
     const char *bench_file;
@@ -293,6 +401,27 @@ int benchmark_microsd(void) {
     }
 
     result = run_read_benchmark(bench_file, &read_mbps);
+    if (result != 0) {
+        unlink(bench_file);
+        g_benchmark_file = NULL;
+        if (extsd_mounted)
+            umount(BENCHMARK_MOUNT_EXTSD);
+        return 1;
+    }
+
+    // Seed random for 4K offset generation
+    srand((unsigned int)get_time_seconds());
+
+    result = run_4k_write_benchmark(bench_file, bench_file_size, &iops_4k_write);
+    if (result != 0) {
+        unlink(bench_file);
+        g_benchmark_file = NULL;
+        if (extsd_mounted)
+            umount(BENCHMARK_MOUNT_EXTSD);
+        return 1;
+    }
+
+    result = run_4k_read_benchmark(bench_file, bench_file_size, &iops_4k_read);
     unlink(bench_file);
     g_benchmark_file = NULL;
 
@@ -307,9 +436,18 @@ int benchmark_microsd(void) {
         return 1;
 
     printf("\n");
-    printf("Results:\n");
+    printf("Sequential:\n");
     printf("  Write: %.1f MiB/s -> %s\n", write_mbps, write_rating(write_mbps));
     printf("  Read:  %.1f MiB/s -> %s\n", read_mbps, read_rating(read_mbps));
+    printf("\n");
+    printf("Random 4K:\n");
+    printf("  Write: %.0f IOPS (%.1f MiB/s)\n",
+           iops_4k_write, (iops_4k_write * BENCHMARK_4K_BLOCK) / MB);
+    printf("  Read:  %.0f IOPS (%.1f MiB/s)\n",
+           iops_4k_read, (iops_4k_read * BENCHMARK_4K_BLOCK) / MB);
+    printf("\n");
+    printf("  Performance Class (estimated): %s\n",
+           app_class_rating(iops_4k_read, iops_4k_write));
 
     return 0;
 }
