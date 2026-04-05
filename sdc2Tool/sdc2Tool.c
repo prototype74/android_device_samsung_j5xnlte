@@ -60,8 +60,8 @@ static void print_header(const char *custom_title) {
 
 static void print_menu(void) {
     printf("1) Wipe Dalvik cache\n");
-    printf("2) Wipe Data (keeps /data_sdc2/media)\n");
-    printf("3) Format Data (ext4 or f2fs)\n");
+    printf("2) Wipe Data\n");
+    printf("3) Format Data\n");
     printf("4) Backup Data\n");
     printf("5) Restore Data\n");
     printf("6) Benchmark microSD\n");
@@ -126,12 +126,15 @@ static void user_input(const char *prompt, char *buf, int size) {
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
 }
 
-static int confirm(const char* warning) {
+static int confirm(const char* text, const int do_warn) {
     char input[16];
 
-    printf("[WARNING] %s\n", warning);
+    if (do_warn)
+        printf("[WARNING] %s\n", text);
+    else
+        printf("%s\n", text);
     printf("\n");
-    user_input("Type 'yes' to confirm: ", input, sizeof(input));
+    user_input("Type 'yes' to confirm ['no' to cancel]: ", input, sizeof(input));
 
     return strcmp(input, "yes") == 0;
 }
@@ -172,7 +175,8 @@ int main(void) {
             case WIPE_DALVIK:
                 clear_screen();
                 print_header("WIPE DALVIK");
-                if (!confirm("This will wipe the Dalvik cache. Continue?")) {
+                if (!confirm("This will wipe the Dalvik cache.\n"
+                             "Continue?", 1)) {
                     reset_screen("Wipe canceled.");
                     break;
                 }
@@ -188,7 +192,8 @@ int main(void) {
             case WIPE_DATA:
                 clear_screen();
                 print_header("WIPE DATA");
-                if (!confirm("This will wipe /data_sdc2 but keep /data_sdc2/media. Continue?")) {
+                if (!confirm("This will wipe /data_sdc2 (without wiping /data_sdc2/media).\n"
+                             "Continue?", 1)) {
                     reset_screen("Wipe canceled.");
                     break;
                 }
@@ -236,7 +241,9 @@ int main(void) {
                 clear_screen();
                 print_header("FORMAT DATA");
 
-                if (!confirm("Formatting /data_sdc2 will erase all data, and this action cannot be undone! Continue?")) {
+                if (!confirm("Formatting /data_sdc2 will erase all data, "
+                             "and this action cannot be undone!\n"
+                             "Continue?", 1)) {
                     reset_screen("Format canceled.");
                     break;
                 }
@@ -334,7 +341,8 @@ int main(void) {
                 clear_screen();
                 print_header("BACKUP DATA");
 
-                if (!confirm("This will create a backup of /data_sdc2. Continue?")) {
+                if (!confirm("This will create a backup of /data_sdc2.\n"
+                             "Continue?", 0)) {
                     reset_screen("Backup canceled.");
                     break;
                 }
@@ -463,7 +471,9 @@ int main(void) {
                 if (available_space < restore_size)
                     printf("[WARNING] Available space may not be sufficient.\n\n");
 
-                if (!confirm("Wipes /data_sdc2 (keeping /data_sdc2/media) and restores the selected backup. Continue?")) {
+                if (!confirm("Wipes /data_sdc2 (without wiping /data_sdc2/media) and "
+                             "restores the selected backup.\n"
+                             "Continue?", 1)) {
                     reset_screen("Restore canceled.");
                     break;
                 }
@@ -483,7 +493,7 @@ int main(void) {
                 print_header("BENCHMARK MICROSD");
                 if (!confirm("This benchmark measures your microSD's read and write speeds "
                              "and checks whether it's suitable for running Android ROMs.\n"
-                             "Continue?")) {
+                             "Continue?", 0)) {
                     reset_screen("Benchmark canceled.");
                     break;
                 }
