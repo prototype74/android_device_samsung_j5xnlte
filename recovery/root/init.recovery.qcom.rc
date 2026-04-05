@@ -40,3 +40,5 @@ on post-fs-data
     chown media_rw media_rw /data_sdc2/media
     mkdir /data_sdc2/media/0 0770 media_rw media_rw
     chown media_rw media_rw /data_sdc2/media/0
+    mkdir /data_sdc2/media/0/TWRP 0777 media_rw media_rw
+    chown media_rw media_rw /data_sdc2/media/0/TWRP
