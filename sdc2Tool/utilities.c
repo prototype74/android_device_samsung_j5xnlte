@@ -142,7 +142,7 @@ int unmount_all(const char *block_device) {
     return 0;
 }
 
-int mkdir_p(const char *path, mode_t mode) {
+int mkdir_p(const char *path, mode_t mode, uid_t uid, gid_t gid) {
     char tmp[PATH_MAX];
     char *p;
     size_t len;
@@ -156,7 +156,11 @@ int mkdir_p(const char *path, mode_t mode) {
     for (p = tmp + 1; *p; p++) {
         if (*p == '/') {
             *p = '\0';
-            if (mkdir(tmp, mode) != 0 && errno != EEXIST) {
+            if (mkdir(tmp, mode) == 0) {
+                if (chown(tmp, uid, gid) != 0)
+                    fprintf(stderr, "[WARN] Failed to set owner for '%s': %s\n",
+                            tmp, strerror(errno));
+            } else if (errno != EEXIST) {
                 fprintf(stderr, "[ERROR] Failed to create directory '%s': %s\n",
                         tmp, strerror(errno));
                 return 1;
@@ -165,7 +169,11 @@ int mkdir_p(const char *path, mode_t mode) {
         }
     }
 
-    if (mkdir(tmp, mode) != 0 && errno != EEXIST) {
+    if (mkdir(tmp, mode) == 0) {
+        if (chown(tmp, uid, gid) != 0)
+            fprintf(stderr, "[WARN] Failed to set owner for '%s': %s\n",
+                    tmp, strerror(errno));
+    } else if (errno != EEXIST) {
         fprintf(stderr, "[ERROR] Failed to create directory '%s': %s\n",
                 tmp, strerror(errno));
         return 1;
@@ -239,24 +247,11 @@ const char *get_filesystem_type(const char *block_device) {
 }
 
 int setup_data_sdc2_media(void) {
-    if (mkdir_p(DATA_MEDIA_0, 0770) != 0) {
+    if (mkdir_p(DATA_MEDIA_0, 0770, MEDIA_RW, MEDIA_RW) != 0) {
         fprintf(stderr, "[ERROR] Failed to create '%s': %s\n",
                 DATA_MEDIA_0, strerror(errno));
         return 1;
     }
-
-    if (chown(DATA_MEDIA, 1023, 1023) != 0) {
-        fprintf(stderr, "[ERROR] Failed to set owner for '%s': %s\n",
-                DATA_MEDIA, strerror(errno));
-        return 1;
-    }
-
-    if (chown(DATA_MEDIA_0, 1023, 1023) != 0) {
-        fprintf(stderr, "[ERROR] Failed to set owner for '%s': %s\n",
-                DATA_MEDIA_0, strerror(errno));
-        return 1;
-    }
-
     return 0;
 }
 

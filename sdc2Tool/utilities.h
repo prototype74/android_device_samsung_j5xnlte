@@ -23,11 +23,14 @@
 #ifndef UTILITIES_H
 #define UTILITIES_H
 
+#include <sys/types.h>
+
 #define STRINGIFY(x) #x
 #define TO_STRING(x) STRINGIFY(x)
 #define CRYPTO_FOOTER_SIZE       20480  // crypto footer size (20 * 1024)
 #define CRYPTO_FOOTER_CHECK_SIZE 16384  // min footer size used by most encryption methods
 #define CRYPTO_FOOTER_MIN_NONZERO  256  // min non-zero bytes to consider partition encrypted
+#define MEDIA_RW 1023
 
 /* Checks if the microSD card is present */
 int is_microsd_available(void);
@@ -42,8 +45,9 @@ int is_mounted(const char* mount_point);
 int unmount_all(const char *block_device);
 
 /* Creates a directory and all missing parent directories (like mkdir -p).
+ * Sets uid/gid as owner on each newly created directory.
  * Returns 0 on success, non-zero on failure. */
-int mkdir_p(const char *path, mode_t mode);
+int mkdir_p(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
 /* Forks a child process and executes the given binary with args.
  * Returns the exit code of the process, or -1 on failure. */

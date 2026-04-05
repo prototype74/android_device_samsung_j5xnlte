@@ -119,7 +119,7 @@ int backup_data_sdc2(const char *base_path, const char *backup_dir) {
     if (check_destination(base_path) != 0)
         return 1;
 
-    if (mkdir_p(backup_dir, 0755) != 0)
+    if (mkdir_p(backup_dir, 0777, MEDIA_RW, MEDIA_RW) != 0)
         return 1;
 
     if (get_free_space(backup_dir, &free_space) != 0 || free_space < backup_size) {
@@ -161,6 +161,10 @@ int backup_data_sdc2(const char *base_path, const char *backup_dir) {
         unlink(marker_path);
         return 1;
     }
+
+    // Set ownership to media_rw
+    chown(backup_path, MEDIA_RW, MEDIA_RW);
+    chown(marker_path, MEDIA_RW, MEDIA_RW);
 
     printf("Backup saved to %s\n", backup_path);
     return 0;

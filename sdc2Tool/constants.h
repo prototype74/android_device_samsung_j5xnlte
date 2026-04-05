@@ -26,7 +26,6 @@
 #define DATA_PART          "/dev/block/platform/soc.0/7864900.sdhci/by-name/userdata"
 #define DATA_MOUNT_POINT   "/data_sdc2"
 #define DATA_DALVIK_CACHE  DATA_MOUNT_POINT "/dalvik-cache"
-#define DATA_MEDIA         DATA_MOUNT_POINT "/media"
 #define DATA_MEDIA_0       DATA_MOUNT_POINT "/media/0"
 
 #define TAR_PATH  "/sbin/tar"
