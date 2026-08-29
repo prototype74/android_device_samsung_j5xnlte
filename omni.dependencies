@@ -9,6 +9,6 @@
         "remote": "github",
         "repository": "prototype74/android_kernel_samsung_msm8916",
         "target_path": "kernel/samsung/msm8916",
-        "revision": "android-8.0"
+        "revision": "android-8.1"
     }
 ]
